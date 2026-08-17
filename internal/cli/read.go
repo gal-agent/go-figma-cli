@@ -48,7 +48,9 @@ func newPagesCmd(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "pages <url-or-fileKey>",
 		Short: "List top-level pages of a file (get_metadata, no nodeId)",
-		Args:  cobra.ExactArgs(1),
+		Example: `  figma pages https://www.figma.com/design/ABC123/My-App
+  figma pages ABC123`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := refFromArgs(args, false)
 			if err != nil {
@@ -70,7 +72,9 @@ func newTreeCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tree <url-or-(fileKey nodeId)>",
 		Short: "Sparse node tree for a node (get_metadata with nodeId)",
-		Args:  cobra.RangeArgs(1, 2),
+		Example: `  figma tree "https://www.figma.com/design/ABC123/My-App?node-id=12-34"
+  figma tree ABC123 12:34`,
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := refFromArgs(args, true)
 			if err != nil {
@@ -88,7 +92,7 @@ func newTreeCmd(app *App) *cobra.Command {
 			return app.printResult(cmd, res)
 		},
 	}
-	cmd.Flags().StringArrayVar(&sets, "set", nil, "extra tool args k=v (e.g. --set depth=2)")
+	cmd.Flags().StringArrayVar(&sets, "set", nil, "extra tool args k=v")
 	return cmd
 }
 
@@ -101,8 +105,13 @@ func newCodeCmd(app *App) *cobra.Command {
 
 Default output is React + Tailwind; the server accepts extra params via --set
 (known ones: clientFrameworks=react|swiftui|..., version, options).
+Treat the output as a design representation and translate it to the
+project's actual stack and components.
 Screenshots embedded in the response are saved to --image-dir, base64 is
 never printed.`,
+		Example: `  figma code "https://www.figma.com/design/ABC123/My-App?node-id=12-34"
+  figma code ABC123 12:34 --set clientFrameworks=vue
+  figma code ABC123 12:34 --fresh`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := refFromArgs(args, true)
@@ -129,7 +138,9 @@ func newVarsCmd(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "vars <url-or-(fileKey nodeId)>",
 		Short: "Design tokens used by a node (get_variable_defs)",
-		Args:  cobra.RangeArgs(1, 2),
+		Example: `  figma vars "https://www.figma.com/design/ABC123/My-App?node-id=12-34"
+  figma vars ABC123 12:34`,
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := refFromArgs(args, true)
 			if err != nil {
@@ -151,7 +162,9 @@ func newShotCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "shot <url-or-(fileKey nodeId)>",
 		Short: "Screenshot a node to a file (get_screenshot); prints only the path",
-		Args:  cobra.RangeArgs(1, 2),
+		Example: `  figma shot "https://www.figma.com/design/ABC123/My-App?node-id=12-34" -o header.png
+  figma shot ABC123 12:34`,
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := refFromArgs(args, true)
 			if err != nil {

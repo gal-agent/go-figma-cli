@@ -28,6 +28,8 @@ client id from an OAuth app registered in your Figma account
 (https://www.figma.com/developers/api - register redirect URI
 http://localhost:<port>/callback, or fixed http://localhost). The client id
 is remembered after the first login.`,
+		Example: `  figma login --client-id <YOUR_CLIENT_ID>
+  figma login`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
 			if app.desktop {
@@ -91,6 +93,13 @@ func newDoctorCmd(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
 		Short: "Check MCP connectivity, auth, tool inventory and alias drift",
+		Long: `Connects, handshakes, lists tools and verifies that the four core
+capabilities (metadata / design context / variables / screenshot) resolve
+through the alias layer. Run before first use and whenever calls start
+failing; the output names the remediation (login, desktop mode, renamed
+tools).`,
+		Example: `  figma doctor
+  figma doctor --desktop`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
 			client, _, err := app.connect(cmd.Context())

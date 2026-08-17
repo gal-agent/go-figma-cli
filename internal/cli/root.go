@@ -59,7 +59,31 @@ func NewRoot() *cobra.Command {
 
 Designed to be driven by AI coding agents: zero resident tool definitions,
 intermediate drill-down steps stay out of the conversation, disk-cached
-results, and image payloads are written to files instead of stdout.`,
+results, and image payloads are written to files instead of stdout.
+
+ARGUMENT FORMS (accepted by every read command unless noted):
+  figma code "https://www.figma.com/design/<fileKey>/<name>?node-id=12-34"
+      Paste a link copied in Figma (right-click frame -> Copy link to
+      selection) as-is; design/file/proto URLs all work, quoted because
+      of the shell-special characters.
+  figma code <fileKey> 12:34
+      Two-arg form. Node ids "12-34" and "12:34" are equivalent.
+  figma pages <fileKey>
+      pages also accepts a bare file key (no node id needed).
+
+Typical workflow (drill down instead of converting whole pages):
+  figma pages <file>                  # 1. what pages exist
+  figma tree  <frame-url>             # 2. frame structure -> pick child frame ids
+  figma code  <frame-url>             # 3. code per child frame (small = accurate)
+  figma pipeline <frame-url>          #    ...or steps 2+3 for all children at once
+  figma vars  <frame-url>             # 4. design tokens used by the frame
+  figma shot  <frame-url> -o ref.png  # 5. visual reference for self-check
+
+Reads are disk-cached for --ttl; use --fresh only after the designer
+updated the file. Auth: ` + "`figma login`" + ` once for remote mode, or
+` + "`--desktop`" + ` against the Figma desktop app (Dev Mode MCP enabled).
+` + "`figma doctor`" + ` verifies the setup. Non-zero exit means failure;
+error messages name the remediation.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

@@ -28,6 +28,9 @@ payloads never hit the agent context:
 
 If the frame has no child frames, falls back to calling get_design_context
 on the frame itself.`,
+		Example: `  figma pipeline "https://www.figma.com/design/ABC123/My-App?node-id=12-34"
+  figma pipeline ABC123 12:34 --set clientFrameworks=vue --max 6
+  figma pipeline ABC123 12:34 -v`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := refFromArgs(args, true)
