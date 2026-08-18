@@ -21,10 +21,13 @@ jobs:
           go-version-file: go.mod
 
       - name: Build all platforms
+        env:
+          VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: |
           set -euo pipefail
-          VERSION="$(git describe --tags --abbrev=0 | sed 's/^v//')"
+          if [ -z "${VERSION}" ]; then VERSION="$(git describe --tags --abbrev=0 | sed 's/^v//')"; fi
           echo "version: $VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           mkdir -p dist
           build() {
             echo "Building $3 ($1/$2)..."
@@ -43,6 +46,7 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.VERSION }}
           generate_release_notes: true
           files: |
             dist/*
