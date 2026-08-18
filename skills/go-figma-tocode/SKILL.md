@@ -1,18 +1,40 @@
 ---
 name: go-figma-tocode
-description: Implement Figma designs as UI code via go-figma-cli. Load when user mentions or agent finds task highly matches figma to code, implement design, 按稿实现, 实现这个页面/组件, design handoff, UI 还原.
+description: Implement Figma designs as UI code via go-figma-cli. Load when user mentions or agent finds task highly matches go-figma-cli to code, implement design, 按稿实现, 实现这个页面/组件, design handoff, UI 还原.
 ---
 
 # Figma design to code (go-figma-cli)
 
 End-to-end: turn a Figma link into working UI code **in the project's own
-stack**. The CLI is self-documenting for syntax (`figma --help`, and every
+stack**. The CLI is self-documenting for syntax (`go-figma-cli --help`, and every
 command has `--help` with examples); this skill teaches the process
 discipline that makes the output accurate and cheap.
 
+## CLI prerequisite
+
+Before the workflow, ensure `go-figma-cli` is available on `PATH`. If it is missing,
+download the matching asset from the latest release:
+`https://github.com/gal-agent/go-figma-cli/releases/latest`.
+
+| Platform | Release asset | Install as |
+|---|---|---|
+| Windows x64 | `go-figma-cli-windows-amd64.exe` | `%LOCALAPPDATA%\Programs\go-figma-cli\go-figma-cli.exe` |
+| Windows ARM64 | `go-figma-cli-windows-arm64.exe` | `%LOCALAPPDATA%\Programs\go-figma-cli\go-figma-cli.exe` |
+| Linux x64 | `go-figma-cli-linux-amd64` | `~/.local/bin/go-figma-cli` |
+| Linux ARM64 | `go-figma-cli-linux-arm64` | `~/.local/bin/go-figma-cli` |
+| macOS Intel | `go-figma-cli-darwin-amd64` | `~/.local/bin/go-figma-cli` |
+| macOS Apple Silicon | `go-figma-cli-darwin-arm64` | `~/.local/bin/go-figma-cli` |
+
+Rename the downloaded asset exactly as shown, make it executable on Linux/macOS
+(`chmod +x ~/.local/bin/go-figma-cli`), and add its parent directory to the user's
+`PATH` if needed. Prefer this prebuilt binary; Go is only required when building
+from source. Verify the download against the release's `checksums.txt`, then run
+`go-figma-cli --help` before continuing.
+
+
 ## Pre-flight (once per session)
 
-1. `figma doctor` must pass. If it fails, its output names the remediation
+1. `go-figma-cli doctor` must pass. If it fails, its output names the remediation
    (login / desktop mode / renamed tools); full OAuth walkthrough lives in
    the go-figma-cli repo README. Do not proceed before it is green.
 2. Detect the project stack from the repo (package.json, components dir,
@@ -70,5 +92,5 @@ Re-run the affected commands with `--fresh` **on those nodes only**. Blanket
 
 - Quick lookups without implementing (check a token, screenshot a node)?
   That is the `go-figma-inspect` skill — lighter workflow, same CLI.
-- Setup/login troubleshooting is NOT a skill: `figma doctor` and the CLI
+- Setup/login troubleshooting is NOT a skill: `go-figma-cli doctor` and the CLI
   README carry it.

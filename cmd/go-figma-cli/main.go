@@ -1,4 +1,4 @@
-// Command figma wraps the official Figma MCP server for agent-friendly,
+// Command go-figma-cli wraps the official Figma MCP server for agent-friendly,
 // context-efficient CLI access.
 package main
 

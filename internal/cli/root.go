@@ -52,7 +52,7 @@ type App struct {
 func NewRoot() *cobra.Command {
 	app := &App{}
 	root := &cobra.Command{
-		Use:   "figma",
+		Use:   "go-figma-cli",
 		Short: "Figma official MCP server, wrapped for agents (context-friendly output)",
 		Long: `Read Figma designs through the official MCP server
 (https://mcp.figma.com/mcp or a local desktop server) from the command line.
@@ -62,27 +62,27 @@ intermediate drill-down steps stay out of the conversation, disk-cached
 results, and image payloads are written to files instead of stdout.
 
 ARGUMENT FORMS (accepted by every read command unless noted):
-  figma code "https://www.figma.com/design/<fileKey>/<name>?node-id=12-34"
+  go-figma-cli code "https://www.figma.com/design/<fileKey>/<name>?node-id=12-34"
       Paste a link copied in Figma (right-click frame -> Copy link to
       selection) as-is; design/file/proto URLs all work, quoted because
       of the shell-special characters.
-  figma code <fileKey> 12:34
+  go-figma-cli code <fileKey> 12:34
       Two-arg form. Node ids "12-34" and "12:34" are equivalent.
-  figma pages <fileKey>
+  go-figma-cli pages <fileKey>
       pages also accepts a bare file key (no node id needed).
 
 Typical workflow (drill down instead of converting whole pages):
-  figma pages <file>                  # 1. what pages exist
-  figma tree  <frame-url>             # 2. frame structure -> pick child frame ids
-  figma code  <frame-url>             # 3. code per child frame (small = accurate)
-  figma pipeline <frame-url>          #    ...or steps 2+3 for all children at once
-  figma vars  <frame-url>             # 4. design tokens used by the frame
-  figma shot  <frame-url> -o ref.png  # 5. visual reference for self-check
+  go-figma-cli pages <file>                  # 1. what pages exist
+  go-figma-cli tree  <frame-url>             # 2. frame structure -> pick child frame ids
+  go-figma-cli code  <frame-url>             # 3. code per child frame (small = accurate)
+  go-figma-cli pipeline <frame-url>          #    ...or steps 2+3 for all children at once
+  go-figma-cli vars  <frame-url>             # 4. design tokens used by the frame
+  go-figma-cli shot  <frame-url> -o ref.png  # 5. visual reference for self-check
 
 Reads are disk-cached for --ttl; use --fresh only after the designer
-updated the file. Auth: ` + "`figma login`" + ` once for remote mode, or
+updated the file. Auth: ` + "`go-figma-cli login`" + ` once for remote mode, or
 ` + "`--desktop`" + ` against the Figma desktop app (Dev Mode MCP enabled).
-` + "`figma doctor`" + ` verifies the setup. Non-zero exit means failure;
+` + "`go-figma-cli doctor`" + ` verifies the setup. Non-zero exit means failure;
 error messages name the remediation.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -146,10 +146,10 @@ func (a *App) token() (string, error) {
 	store := &auth.Store{Path: auth.DefaultStorePath()}
 	tok, err := store.Load()
 	if err != nil {
-		return "", fmt.Errorf("read stored token: %w (run `figma login`)", err)
+		return "", fmt.Errorf("read stored token: %w (run `go-figma-cli login`)", err)
 	}
 	if tok == nil {
-		return "", errors.New("no stored token for the remote server; run `figma login` (or use --desktop)")
+		return "", errors.New("no stored token for the remote server; run `go-figma-cli login` (or use --desktop)")
 	}
 	if tok.Valid() {
 		return tok.AccessToken, nil
@@ -160,7 +160,7 @@ func (a *App) token() (string, error) {
 			return refreshed.AccessToken, nil
 		}
 	}
-	return "", errors.New("token expired and refresh failed; run `figma login`")
+	return "", errors.New("token expired and refresh failed; run `go-figma-cli login`")
 }
 
 func (a *App) connect(ctx context.Context) (*mcp.Client, *tools.Resolver, error) {
@@ -172,7 +172,7 @@ func (a *App) connect(ctx context.Context) (*mcp.Client, *tools.Resolver, error)
 		client := mcp.NewClient(a.endpoint(), tok)
 		if _, err := client.Initialize(ctx); err != nil {
 			if errors.Is(err, mcp.ErrUnauthorized) {
-				return nil, nil, fmt.Errorf("server rejected the token; run `figma login`: %w", err)
+				return nil, nil, fmt.Errorf("server rejected the token; run `go-figma-cli login`: %w", err)
 			}
 			if a.desktop {
 				return nil, nil, fmt.Errorf("cannot reach the desktop MCP server: %w\nIs the Figma desktop app running with Dev Mode + 'Enable MCP server' turned on?", err)

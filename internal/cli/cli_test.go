@@ -168,7 +168,7 @@ func TestMissingToken(t *testing.T) {
 	root.SetErr(buf)
 	root.SetArgs([]string{"--url", s.Endpoint(), "pages", "AbCdEf123"})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "figma login") {
+	if err == nil || !strings.Contains(err.Error(), "go-figma-cli login") {
 		t.Fatalf("expected login hint, got %v", err)
 	}
 }

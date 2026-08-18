@@ -19,7 +19,7 @@ func newLoginCmd(app *App) *cobra.Command {
 	var clientID, clientSecret string
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Authorize figma-cli with the remote Figma MCP server (one-time)",
+		Short: "Authorize go-figma-cli with the remote Figma MCP server (one-time)",
 		Long: `Runs the OAuth2 PKCE loopback flow against the Figma MCP authorization
 server and caches the token.
 
@@ -28,8 +28,8 @@ client id from an OAuth app registered in your Figma account
 (https://www.figma.com/developers/api - register redirect URI
 http://localhost:<port>/callback, or fixed http://localhost). The client id
 is remembered after the first login.`,
-		Example: `  figma login --client-id <YOUR_CLIENT_ID>
-  figma login`,
+		Example: `  go-figma-cli login --client-id <YOUR_CLIENT_ID>
+  go-figma-cli login`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
 			if app.desktop {
@@ -56,7 +56,7 @@ is remembered after the first login.`,
 				if clientID == "" {
 					return fmt.Errorf(`Figma does not allow dynamic client registration (%v).
 Register an OAuth app in your Figma account (redirect URI http://localhost) and re-run:
-  figma login --client-id <YOUR_CLIENT_ID> [--client-secret <SECRET>]
+  go-figma-cli login --client-id <YOUR_CLIENT_ID> [--client-secret <SECRET>]
 or set FIGMA_CLIENT_ID / FIGMA_CLIENT_SECRET.`, regErr)
 				}
 				fmt.Fprintln(out, "dynamic registration unavailable; using provided client id")
@@ -79,7 +79,7 @@ or set FIGMA_CLIENT_ID / FIGMA_CLIENT_SECRET.`, regErr)
 			}
 			fmt.Fprintf(out, "authorized; token cached at %s (expires %s)\n",
 				store.Path, tok.ExpiresAt.Format("2006-01-02 15:04 MST"))
-			fmt.Fprintln(out, "verify with: figma doctor")
+			fmt.Fprintln(out, "verify with: go-figma-cli doctor")
 			return nil
 		},
 	}
@@ -98,8 +98,8 @@ capabilities (metadata / design context / variables / screenshot) resolve
 through the alias layer. Run before first use and whenever calls start
 failing; the output names the remediation (login, desktop mode, renamed
 tools).`,
-		Example: `  figma doctor
-  figma doctor --desktop`,
+		Example: `  go-figma-cli doctor
+  go-figma-cli doctor --desktop`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
 			client, _, err := app.connect(cmd.Context())
@@ -109,7 +109,7 @@ tools).`,
 			init, err := client.Initialize(cmd.Context())
 			if err != nil {
 				if errors.Is(err, mcp.ErrUnauthorized) {
-					return errors.New("server rejected our credentials; run `figma login` first")
+					return errors.New("server rejected our credentials; run `go-figma-cli login` first")
 				}
 				return err
 			}
@@ -145,9 +145,9 @@ tools).`,
 				tok, err := store.Load()
 				switch {
 				case err != nil || tok == nil:
-					fmt.Fprintln(out, "no token - run `figma login`")
+					fmt.Fprintln(out, "no token - run `go-figma-cli login`")
 				case !tok.Valid():
-					fmt.Fprintln(out, "token expired - refresh is attempted automatically; else run `figma login`")
+					fmt.Fprintln(out, "token expired - refresh is attempted automatically; else run `go-figma-cli login`")
 				default:
 					fmt.Fprintf(out, "valid until %s\n", tok.ExpiresAt.Format("2006-01-02 15:04"))
 				}

@@ -1,4 +1,4 @@
-# figma-cli
+# go-figma-cli
 
 Read Figma designs from the command line through the **official Figma MCP
 server**, wrapped for AI coding agents.
@@ -15,13 +15,13 @@ Driving the official MCP directly from an agent client costs:
 - **No caching** - repeat reads of the same node hit the API and the
   rate limit again.
 
-`figma-cli` fixes all three: zero resident definitions (it is just a bash
+`go-figma-cli` fixes all three: zero resident definitions (it is just a bash
 call), drill-down intermediates stay inside the process, and results are
 disk-cached. Image payloads are written to files - base64 never hits stdout.
 
 ## Install
 
-    go install github.com/gal-agent/go-figma-cli/cmd/figma@latest
+    go install github.com/gal-agent/go-figma-cli/cmd/go-figma-cli@latest
 
 ## Auth
 
@@ -31,7 +31,7 @@ Two modes:
   Figma does not allow dynamic client registration (403), so register an
   OAuth app in your Figma account (redirect URI `http://localhost`) and:
 
-      figma login --client-id <ID> [--client-secret <SECRET>]
+      go-figma-cli login --client-id <ID> [--client-secret <SECRET>]
       # or FIGMA_CLIENT_ID / FIGMA_CLIENT_SECRET
 
   Tokens are cached in `~/.config/figma-cli/auth.json` and refreshed
@@ -44,13 +44,13 @@ Two modes:
 
 ## Usage
 
-    figma doctor                # connectivity, tool inventory, alias drift
-    figma pages  <url|fileKey>  # page list
-    figma tree   <url>          # sparse node tree (--set depth=2)
-    figma code   <url>          # design context / codegen (--set clientFrameworks=vue)
-    figma vars   <url>          # design tokens
-    figma shot   <url> -o x.png # screenshot to file
-    figma pipeline <url>        # one-shot: tree -> child frames -> code + vars
+    go-figma-cli doctor                # connectivity, tool inventory, alias drift
+    go-figma-cli pages  <url|fileKey>  # page list
+    go-figma-cli tree   <url>          # sparse node tree (--set depth=2)
+    go-figma-cli code   <url>          # design context / codegen (--set clientFrameworks=vue)
+    go-figma-cli vars   <url>          # design tokens
+    go-figma-cli shot   <url> -o x.png # screenshot to file
+    go-figma-cli pipeline <url>        # one-shot: tree -> child frames -> code + vars
 
 A URL is any Figma link with `?node-id=...` (right-click a frame ->
 *Copy link to selection*), or pass `<fileKey> <nodeId>` as two arguments.
@@ -64,11 +64,11 @@ are printed. If the frame has no children it falls back to single-node code.
 
 ## Agent guidance (for the skill layer)
 
-1. `figma pages` or `figma tree` to locate frame ids - never guess them.
-2. `figma pipeline <frame-url>` for a full screen; `figma code` for one node.
+1. `go-figma-cli pages` or `go-figma-cli tree` to locate frame ids - never guess them.
+2. `go-figma-cli pipeline <frame-url>` for a full screen; `go-figma-cli code` for one node.
 3. Treat `code` output as a *design representation* (default React+Tailwind)
    and translate it to the project stack; align tokens with `vars`.
-4. `figma shot` gives a visual reference for verification.
+4. `go-figma-cli shot` gives a visual reference for verification.
 5. Results are cached (`--ttl`); use `--fresh` after the designer pushes an
    update.
 
@@ -76,7 +76,7 @@ are printed. If the frame has no children it falls back to single-node code.
 
 Figma renames tools occasionally (`get_code` -> `get_design_context`,
 `get_image` -> `get_screenshot`). The CLI resolves capabilities through an
-alias table against a live `tools/list` at connect time; `figma doctor`
+alias table against a live `tools/list` at connect time; `go-figma-cli doctor`
 reports drift explicitly.
 
 ## Development

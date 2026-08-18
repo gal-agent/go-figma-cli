@@ -281,7 +281,7 @@ func Login(ctx context.Context, hc *http.Client, ep *Endpoint, store *Store) (*T
 // Refresh exchanges a refresh token for a fresh access token.
 func Refresh(ctx context.Context, hc *http.Client, ep *Endpoint, store *Store, t *Token) (*Token, error) {
 	if t == nil || t.RefreshToken == "" {
-		return nil, errors.New("no refresh token stored; run figma login")
+		return nil, errors.New("no refresh token stored; run go-figma-cli login")
 	}
 	form := url.Values{
 		"grant_type":    {"refresh_token"},
