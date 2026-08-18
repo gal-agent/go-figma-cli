@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"os"
@@ -185,7 +186,7 @@ func newShotCmd(app *App) *cobra.Command {
 				return err
 			}
 			if out != "" && len(files) > 0 {
-				if err := os.Rename(files[0], out); err != nil {
+				if err := moveFile(files[0], out); err != nil {
 					return err
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), out)
@@ -202,8 +203,35 @@ func newShotCmd(app *App) *cobra.Command {
 }
 
 func dirOf(p string) string {
-	if i := strings.LastIndex(p, "/"); i >= 0 {
+	if i := strings.LastIndexAny(p, `/\`); i >= 0 {
 		return p[:i]
 	}
 	return "."
+}
+
+// moveFile renames src to dst, falling back to copy+delete across volumes.
+func moveFile(src, dst string) error {
+	if err := os.Rename(src, dst); err == nil {
+		return nil
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	if err := os.MkdirAll(dirOf(dst), 0o755); err != nil {
+		return err
+	}
+	outF, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(outF, in); err != nil {
+		outF.Close()
+		return err
+	}
+	if err := outF.Close(); err != nil {
+		return err
+	}
+	return os.Remove(src)
 }
