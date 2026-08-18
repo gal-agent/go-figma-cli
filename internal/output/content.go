@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/piratecoder/go-figma-cli/internal/mcp"
+	"github.com/gal-agent/go-figma-cli/internal/mcp"
 )
 
 // Options controls rendering.

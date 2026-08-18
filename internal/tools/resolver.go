@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/piratecoder/go-figma-cli/internal/mcp"
+	"github.com/gal-agent/go-figma-cli/internal/mcp"
 )
 
 // Capability names used across the CLI. Never call raw tool names directly.

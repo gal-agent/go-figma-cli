@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/piratecoder/go-figma-cli/internal/mcptest"
+	"github.com/gal-agent/go-figma-cli/internal/mcptest"
 )
 
 func newTestClient(t *testing.T, s *mcptest.Server) *Client {

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/piratecoder/go-figma-cli/internal/mcp"
+	"github.com/gal-agent/go-figma-cli/internal/mcp"
 )
 
 func list(names ...string) []mcp.Tool {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/piratecoder/go-figma-cli/internal/mcp"
+	"github.com/gal-agent/go-figma-cli/internal/mcp"
 )
 
 func TestWriteResultText(t *testing.T) {

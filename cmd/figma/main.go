@@ -2,7 +2,7 @@
 // context-efficient CLI access.
 package main
 
-import "github.com/piratecoder/go-figma-cli/internal/cli"
+import "github.com/gal-agent/go-figma-cli/internal/cli"
 
 func main() {
 	cli.Execute()

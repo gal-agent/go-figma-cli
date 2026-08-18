@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/piratecoder/go-figma-cli/internal/auth"
-	"github.com/piratecoder/go-figma-cli/internal/mcptest"
+	"github.com/gal-agent/go-figma-cli/internal/auth"
+	"github.com/gal-agent/go-figma-cli/internal/mcptest"
 )
 
 const metaXML = `<frame id="1:2" name="Dashboard" type="frame">

@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/piratecoder/go-figma-cli/internal/tools"
-	"github.com/piratecoder/go-figma-cli/internal/xmlscan"
+	"github.com/gal-agent/go-figma-cli/internal/tools"
+	"github.com/gal-agent/go-figma-cli/internal/xmlscan"
 )
 
 func newPipelineCmd(app *App) *cobra.Command {

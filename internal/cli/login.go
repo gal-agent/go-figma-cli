@@ -9,10 +9,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/piratecoder/go-figma-cli/internal/auth"
-	"github.com/piratecoder/go-figma-cli/internal/cache"
-	"github.com/piratecoder/go-figma-cli/internal/mcp"
-	"github.com/piratecoder/go-figma-cli/internal/tools"
+	"github.com/gal-agent/go-figma-cli/internal/auth"
+	"github.com/gal-agent/go-figma-cli/internal/cache"
+	"github.com/gal-agent/go-figma-cli/internal/mcp"
+	"github.com/gal-agent/go-figma-cli/internal/tools"
 )
 
 func newLoginCmd(app *App) *cobra.Command {

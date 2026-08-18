@@ -1,4 +1,4 @@
-module github.com/piratecoder/go-figma-cli
+module github.com/gal-agent/go-figma-cli
 
 go 1.25.8
 

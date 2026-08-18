@@ -21,7 +21,7 @@ disk-cached. Image payloads are written to files - base64 never hits stdout.
 
 ## Install
 
-    go install github.com/piratecoder/go-figma-cli/cmd/figma@latest
+    go install github.com/gal-agent/go-figma-cli/cmd/figma@latest
 
 ## Auth
 

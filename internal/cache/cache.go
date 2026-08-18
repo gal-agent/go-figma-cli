@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/piratecoder/go-figma-cli/internal/mcp"
+	"github.com/gal-agent/go-figma-cli/internal/mcp"
 )
 
 // Cache stores tool results under Dir with a per-entry TTL.
