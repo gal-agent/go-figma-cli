@@ -4,9 +4,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"sort"
 	"strconv"
@@ -15,37 +13,27 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/gal-agent/go-figma-cli/internal/auth"
 	"github.com/gal-agent/go-figma-cli/internal/cache"
+	"github.com/gal-agent/go-figma-cli/internal/config"
 	"github.com/gal-agent/go-figma-cli/internal/figmaurl"
 	"github.com/gal-agent/go-figma-cli/internal/mcp"
 	"github.com/gal-agent/go-figma-cli/internal/output"
 	"github.com/gal-agent/go-figma-cli/internal/tools"
 )
 
-const (
-	defaultRemoteURL  = "https://mcp.figma.com/mcp"
-	defaultDesktopURL = "http://127.0.0.1:3845/mcp"
-)
-
 // version is set at build time via -ldflags.
-var version = "0.1.0"
+var version = "0.2.0"
 
 // verbose mirrors the global -v flag (progress goes to stderr).
 var verbose bool
 
 // App carries global options and shared plumbing.
 type App struct {
-	desktop  bool
-	baseURL  string
 	ttl      time.Duration
 	noCache  bool
 	fresh    bool
 	raw      bool
 	imageDir string
-
-	client   *mcp.Client
-	resolver *tools.Resolver
 }
 
 // NewRoot builds the command tree.
@@ -53,23 +41,24 @@ func NewRoot() *cobra.Command {
 	app := &App{}
 	root := &cobra.Command{
 		Use:   "go-figma-cli",
-		Short: "Figma official MCP server, wrapped for agents (context-friendly output)",
-		Long: `Read Figma designs through the official MCP server
-(https://mcp.figma.com/mcp or a local desktop server) from the command line.
+		Short: "Read Figma designs via the Figma REST API with a personal access token",
+		Long: `Read Figma designs from the command line through the Figma REST API,
+authenticated with a personal access token (PAT).
 
-Designed to be driven by AI coding agents: zero resident tool definitions,
-intermediate drill-down steps stay out of the conversation, disk-cached
-results, and image payloads are written to files instead of stdout.
+Designed to be driven by AI coding agents: intermediate drill-down steps
+stay out of the conversation, disk-cached results, and image payloads are
+written to files instead of stdout.
+
+SETUP (once):
+  1. Create a PAT at https://www.figma.com/settings
+     (Security -> Personal access tokens, scope: File content - read-only).
+  2. go-figma-cli login --token <PAT>
+  3. go-figma-cli doctor
 
 ARGUMENT FORMS (accepted by every read command unless noted):
   go-figma-cli code "https://www.figma.com/design/<fileKey>/<name>?node-id=12-34"
-      Paste a link copied in Figma (right-click frame -> Copy link to
-      selection) as-is; design/file/proto URLs all work, quoted because
-      of the shell-special characters.
   go-figma-cli code <fileKey> 12:34
-      Two-arg form. Node ids "12-34" and "12:34" are equivalent.
   go-figma-cli pages <fileKey>
-      pages also accepts a bare file key (no node id needed).
 
 Typical workflow (drill down instead of converting whole pages):
   go-figma-cli pages <file>                  # 1. what pages exist
@@ -80,21 +69,17 @@ Typical workflow (drill down instead of converting whole pages):
   go-figma-cli shot  <frame-url> -o ref.png  # 5. visual reference for self-check
 
 Reads are disk-cached for --ttl; use --fresh only after the designer
-updated the file. Auth: ` + "`go-figma-cli login`" + ` once for remote mode, or
-` + "`--desktop`" + ` against the Figma desktop app (Dev Mode MCP enabled).
-` + "`go-figma-cli doctor`" + ` verifies the setup. Non-zero exit means failure;
-error messages name the remediation.`,
+updated the file. Non-zero exit means failure; error messages name the
+remediation.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
 	pf := root.PersistentFlags()
-	pf.BoolVar(&app.desktop, "desktop", false, "use the local Figma desktop MCP server (127.0.0.1:3845, no OAuth; needs Dev Mode MCP enabled)")
-	pf.StringVar(&app.baseURL, "url", "", fmt.Sprintf("MCP endpoint override (default %s, or %s with --desktop)", defaultRemoteURL, defaultDesktopURL))
 	pf.DurationVar(&app.ttl, "ttl", 10*time.Minute, "cache TTL")
 	pf.BoolVar(&app.noCache, "no-cache", false, "disable the disk cache")
 	pf.BoolVar(&app.fresh, "fresh", false, "bypass cache for reads (still writes)")
-	pf.BoolVar(&app.raw, "raw", false, "print the raw JSON-RPC tool result instead of rendered text")
-	pf.StringVar(&app.imageDir, "image-dir", ".", "directory for image payloads decoded from tool results")
+	pf.BoolVar(&app.raw, "raw", false, "print the raw tool result JSON instead of rendered text")
+	pf.StringVar(&app.imageDir, "image-dir", ".", "directory for image payloads")
 	pf.BoolVarP(&verbose, "verbose", "v", false, "log drill-down progress to stderr")
 
 	root.AddCommand(
@@ -118,97 +103,14 @@ func Execute() {
 	}
 }
 
-// ---- shared plumbing ----
-
-func (a *App) endpoint() string {
-	if a.baseURL != "" {
-		return a.baseURL
-	}
-	if a.desktop {
-		return defaultDesktopURL
-	}
-	return defaultRemoteURL
-}
-
-func (a *App) mode() string {
-	if a.desktop {
-		return "desktop"
-	}
-	return "remote"
-}
-
-var refreshHTTP = &http.Client{Timeout: 60 * time.Second}
-
-func (a *App) token() (string, error) {
-	if a.desktop {
-		return "", nil
-	}
-	store := &auth.Store{Path: auth.DefaultStorePath()}
-	tok, err := store.Load()
-	if err != nil {
-		return "", fmt.Errorf("read stored token: %w (run `go-figma-cli login`)", err)
-	}
-	if tok == nil {
-		return "", errors.New("no stored token for the remote server; run `go-figma-cli login` (or use --desktop)")
-	}
-	if tok.Valid() {
-		return tok.AccessToken, nil
-	}
-	if ep, _ := store.LoadEndpoint(); ep != nil {
-		refreshed, rerr := auth.Refresh(context.Background(), refreshHTTP, ep, store, tok)
-		if rerr == nil {
-			return refreshed.AccessToken, nil
-		}
-	}
-	return "", errors.New("token expired and refresh failed; run `go-figma-cli login`")
-}
-
-func (a *App) connect(ctx context.Context) (*mcp.Client, *tools.Resolver, error) {
-	if a.client == nil {
-		tok, err := a.token()
-		if err != nil {
-			return nil, nil, err
-		}
-		client := mcp.NewClient(a.endpoint(), tok)
-		if _, err := client.Initialize(ctx); err != nil {
-			if errors.Is(err, mcp.ErrUnauthorized) {
-				return nil, nil, fmt.Errorf("server rejected the token; run `go-figma-cli login`: %w", err)
-			}
-			if a.desktop {
-				return nil, nil, fmt.Errorf("cannot reach the desktop MCP server: %w\nIs the Figma desktop app running with Dev Mode + 'Enable MCP server' turned on?", err)
-			}
-			return nil, nil, err
-		}
-		list, err := client.ListTools(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-		a.client = client
-		a.resolver = tools.NewResolver(list)
-	}
-	return a.client, a.resolver, nil
-}
-
-// callTool resolves a capability, consults the cache, and invokes the tool.
-// ref participates in the cache key (may be nil for file-less calls).
+// callTool consults the cache, calls the REST API and renders an
+// mcp.CallToolResult-shaped value (the CLI's internal result type).
 func (a *App) callTool(ctx context.Context, capability string, args map[string]any, ref *figmaurl.Ref) (*mcp.CallToolResult, error) {
-	client, resolver, err := a.connect(ctx)
-	if err != nil {
-		return nil, err
-	}
-	name, err := resolver.Resolve(capability)
-	if err != nil {
-		return nil, err
-	}
-	if args == nil {
-		args = map[string]any{}
-	}
-
 	var c *cache.Cache
 	if !a.noCache {
 		c = cache.New(cache.DefaultDir(), a.ttl)
 	}
-	key := cacheKey(a.endpoint(), ref, capability, args)
+	key := cacheKey(capability, ref, args)
 	if c != nil && !a.fresh {
 		if res, ok := c.Get(key); ok {
 			if verbose {
@@ -217,10 +119,7 @@ func (a *App) callTool(ctx context.Context, capability string, args map[string]a
 			return res, nil
 		}
 	}
-	if verbose {
-		fmt.Fprintf(os.Stderr, "[mcp] %s %s\n", name, mustJSON(args))
-	}
-	res, err := client.CallTool(ctx, name, args)
+	res, err := a.callToolREST(ctx, capability, args, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -230,8 +129,8 @@ func (a *App) callTool(ctx context.Context, capability string, args map[string]a
 	return res, nil
 }
 
-func cacheKey(endpoint string, ref *figmaurl.Ref, capability string, args map[string]any) string {
-	parts := []string{endpoint, capability}
+func cacheKey(capability string, ref *figmaurl.Ref, args map[string]any) string {
+	parts := []string{"rest", capability}
 	if ref != nil {
 		parts = append(parts, ref.FileKey, ref.NodeID)
 	}
@@ -256,7 +155,7 @@ func (a *App) outputOptions(cmd *cobra.Command) output.Options {
 	}
 }
 
-// printResult renders a result honoring --raw; tool-level errors exit non-zero.
+// printResult renders a result honoring --raw.
 func (a *App) printResult(cmd *cobra.Command, res *mcp.CallToolResult) error {
 	if res.IsError {
 		return fmt.Errorf("tool reported an error:\n%s", res.TextParts())
@@ -314,3 +213,7 @@ func parseSets(values []string) (map[string]any, error) {
 	}
 	return out, nil
 }
+
+// ensure tools import is used (capability constants live there).
+var _ = tools.CapMetadata
+var _ = config.DefaultPath

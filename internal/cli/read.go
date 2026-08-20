@@ -3,20 +3,15 @@ package cli
 import (
 	"fmt"
 	"io"
-	"strings"
-
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/gal-agent/go-figma-cli/internal/figmaurl"
-	"github.com/gal-agent/go-figma-cli/internal/mcp"
 	"github.com/gal-agent/go-figma-cli/internal/output"
 	"github.com/gal-agent/go-figma-cli/internal/tools"
 )
-
-// newResolver is a tiny indirection so login/doctor can build resolvers too.
-func newResolver(list []mcp.Tool) *tools.Resolver { return tools.NewResolver(list) }
 
 // refFromArgs accepts "<url>" or "<fileKey> <nodeId>" (2 positional args).
 func refFromArgs(args []string, requireNode bool) (*figmaurl.Ref, error) {

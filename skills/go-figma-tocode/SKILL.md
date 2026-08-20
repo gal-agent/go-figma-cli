@@ -1,96 +1,74 @@
----
-name: go-figma-tocode
-description: Implement Figma designs as UI code via go-figma-cli. Load when user mentions or agent finds task highly matches go-figma-cli to code, implement design, 按稿实现, 实现这个页面/组件, design handoff, UI 还原.
----
+# go-figma-tocode
 
-# Figma design to code (go-figma-cli)
+Implement Figma designs as UI code via `go-figma-cli` (PAT-based REST API).
 
-End-to-end: turn a Figma link into working UI code **in the project's own
-stack**. The CLI is self-documenting for syntax (`go-figma-cli --help`, and every
-command has `--help` with examples); this skill teaches the process
-discipline that makes the output accurate and cheap.
+## Auto-install
 
-## CLI prerequisite
+If `go-figma-cli` is not on PATH, ask the user to install it
+(`/sudo go install github.com/gal-agent/go-figma-cli/cmd/go-figma-cli@latest`).
+Verify with `go-figma-cli doctor`. Do NOT proceed until it works.
 
-Before the workflow, ensure `go-figma-cli` is available on `PATH`. If it is missing,
-download the matching asset from the latest release:
-`https://github.com/gal-agent/go-figma-cli/releases/latest`.
+## PAT setup
 
-| Platform | Release asset | Install as |
-|---|---|---|
-| Windows x64 | `go-figma-cli-windows-amd64.exe` | `%LOCALAPPDATA%\Programs\go-figma-cli\go-figma-cli.exe` |
-| Windows ARM64 | `go-figma-cli-windows-arm64.exe` | `%LOCALAPPDATA%\Programs\go-figma-cli\go-figma-cli.exe` |
-| Linux x64 | `go-figma-cli-linux-amd64` | `~/.local/bin/go-figma-cli` |
-| Linux ARM64 | `go-figma-cli-linux-arm64` | `~/.local/bin/go-figma-cli` |
-| macOS Intel | `go-figma-cli-darwin-amd64` | `~/.local/bin/go-figma-cli` |
-| macOS Apple Silicon | `go-figma-cli-darwin-arm64` | `~/.local/bin/go-figma-cli` |
+Run `go-figma-cli doctor`. If it fails (401/403 or missing token):
 
-Rename the downloaded asset exactly as shown, make it executable on Linux/macOS
-(`chmod +x ~/.local/bin/go-figma-cli`), and add its parent directory to the user's
-`PATH` if needed. Prefer this prebuilt binary; Go is only required when building
-from source. Verify the download against the release's `checksums.txt`, then run
-`go-figma-cli --help` before continuing.
+1. Tell the user: "Open https://www.figma.com/settings -> Security ->
+   Personal access tokens -> Generate new token. Scope: **File content -
+   read-only**."
+2. Run: `go-figma-cli login --token figd_xxxxxxxx`
+3. Verify: `go-figma-cli doctor`
 
+Token stored at `<user config>/figma-cli/config.json`, reused automatically.
 
-## Pre-flight (once per session)
+## Commands
 
-1. `go-figma-cli doctor` must pass. If it fails, its output names the remediation
-   (login / desktop mode / renamed tools); full OAuth walkthrough lives in
-   the go-figma-cli repo README. Do not proceed before it is green.
-2. Detect the project stack from the repo (package.json, components dir,
-   tailwind config, vue/svelte markers) BEFORE calling `code`. The whole
-   point of this workflow is landing code in the project's stack, so know
-   the target first.
+```bash
+go-figma-cli pipeline <url>           # tree->children->code+vars (best for handoff)
+go-figma-cli code <url>                # single node design context
+go-figma-cli tree <url>                # node structure
+go-figma-cli vars <url>                # design tokens (local + published)
+go-figma-cli shot <url> -o ref.png     # screenshot to file
+go-figma-cli pages <url|key>           # page list
+```
+
+URL: Figma link with `?node-id=...` (right-click frame -> Copy link).
+Or `fileKey nodeId` as two args. Output is disk-cached; `--fresh` to refresh.
 
 ## Workflow
 
-### 1. Orient, never blind-convert
-Run `pages` / `tree` to locate the exact target frame and its child frames.
-**Never convert a whole page or a huge frame**: official guidance is that
-large selections return truncated, low-quality output. Target child-frame
-granularity (Card / Header / Sidebar size).
+1. Detect project stack from repo (package.json, components/, tailwind.config,
+   .vue/.svelte files) BEFORE calling `code`.
+2. `pipeline <frame-url>` - one call gets tree + per-child design context +
+   variables. Use `--max N` for large frames.
+3. `code <node-url>` for individual nodes that need more detail.
+4. `vars <url>` - map design tokens to project tokens (prefer tokens over
+   literals).
+5. `shot <url> -o ref.png` - visual reference for self-check.
 
-### 2. Extract per child frame
-Default: `pipeline` on the frame (does tree -> child frames -> code+vars in
-one process; intermediates stay out of context). Use `code` per frame when
-you only need some children. If a child frame is itself huge, go one level
-deeper with `tree` on that child and split again.
+## How to read `code` output
 
-### 3. Treat output as a design representation
-The generated React + Tailwind (or `--set clientFrameworks=...` variant) is
-**not the deliverable**. It encodes layout, hierarchy, spacing and variants.
-Translate it to the project's components, utilities and conventions — see
-resources/translation-guide.md for mapping heuristics.
+The `code` command outputs structured **design context** (indented text, not
+JSON, not runnable code). Translate it to the project stack:
 
-### 4. Align design tokens
-`vars` lists the design tokens (colors/spacing/type) the frame uses. Map
-them to the project's token system (CSS variables, theme file, tailwind
-config). Do not hardcode a hex value that exists as a token; if the project
-lacks a token, define one instead of scattering literals.
+- **Layout** (flex/grid, direction, gap, padding) is ground truth - keep it.
+- **Component properties/variants** are listed as `props: Size=Large|Small`
+  - map to variant props in the target component library.
+- **Constraints** (`constrain: left/top`) describe resize behavior - map to
+  flex/grid sizing.
+- **Layout grids** (`grid: columns stretch count=4 gutter=16`) map to CSS
+  grid.
+- **Colors** from `vars` take priority over hex literals in `code`.
+- **Bound variables** (`bound: fill->Var:123`) link to design tokens -
+  always resolve via `vars`.
+- Repeated blocks = one component, data-driven. Write it once.
+- The output is stack-neutral (no React/Vue/Tailwind bias) - map to the
+  project's styling convention.
 
-### 5. Verify visually
-`shot` the frame to a file, look at it (image tools), and compare against
-what you wrote. Iterate on mismatches before declaring done.
+## Token efficiency
 
-### 6. Designer updated the file?
-Re-run the affected commands with `--fresh` **on those nodes only**. Blanket
-`--fresh` wastes quota; cache hits are free and instant.
-
-## Discipline
-
-- **Quota-aware**: every MCP call counts against Figma rate limits. Cache
-  is on by default — exploit it within and across sessions. `--fresh` is a
-  deliberate act, not a default.
-- **Node-id hygiene**: take ids from `tree`/`pages` output; pasting the
-  Figma link as-is is equally fine. `12-34` and `12:34` are the same node.
-- **Screenshots are files**: image payloads are written to disk and only
-  the path is printed. Reference them by path; never inline base64.
-- **Icons/raster assets**: not exported by these commands yet — export via
-  the Figma UI meanwhile.
-
-## Boundaries
-
-- Quick lookups without implementing (check a token, screenshot a node)?
-  That is the `go-figma-inspect` skill — lighter workflow, same CLI.
-- Setup/login troubleshooting is NOT a skill: `go-figma-cli doctor` and the CLI
-  README carry it.
+- `pipeline` is most efficient: intermediates off-screen, only sectioned
+  code + vars printed.
+- Cache hits are free - don't re-fetch within `--ttl`.
+- `--fresh` only after designer updates the file.
+- `shot` writes to file - only the path enters context.
+- Avoid `--raw` unless debugging.

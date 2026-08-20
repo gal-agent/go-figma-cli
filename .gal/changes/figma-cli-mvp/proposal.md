@@ -2,25 +2,27 @@
 
 ## Intent
 
-Wrap the official Figma MCP server (`https://mcp.figma.com/mcp`, or desktop
-`http://127.0.0.1:3845/mcp`) in a Go CLI so that AI coding agents can consume
-Figma designs via bash without paying the MCP "connection tax" (all 30 tool
-definitions resident in every LLM request, ~6-12k tokens) and without dumping
-raw intermediate artifacts into the conversation.
+Wrap the official Figma MCP server (documented standalone path: Desktop at
+`http://127.0.0.1:3845/mcp`; hosted endpoint retained for externally
+authenticated integrations) in a Go CLI so that AI coding agents can consume
+Figma designs via a command interface without eagerly injecting the entire MCP
+tool schema and without dumping raw intermediate artifacts into the
+conversation.
 
 Measured rationale (session 2026-08-17):
-- MCP tool definitions: ~150-680 tokens/tool (wire-format measurement of two
-  real MCP servers), 30 official Figma tools => ~6-12k resident tokens/request.
+- Figma exposes roughly 30 tools. Clients that eagerly inject all schemas may
+  spend several thousand context tokens per turn; clients that cache or expose
+  tools selectively can avoid much of that cost.
 - A drill-down session (pages -> sparse tree -> per-frame code) leaves every
-  intermediate response in context when driven through an MCP client directly.
-- CLI: zero resident cost; only final (optionally trimmed) output enters
-  context; disk cache removes repeat calls.
+  intermediate response in context when driven through some MCP clients.
+- CLI: zero resident tool-schema cost; only final (optionally trimmed) output
+  enters context; disk cache removes repeat calls.
 
 ## Scope (MVP)
 
 Commands:
-- `figma login`        one-time OAuth2 PKCE authorization for the remote server
-- `figma doctor`       handshake + tools/list + drift report vs expected aliases
+- `go-figma-cli login` explains hosted OAuth limitations and Desktop setup
+- `go-figma-cli doctor --desktop` handshake + tools/list + alias drift report
 - `figma pages <url>`  top-level page list (get_metadata without nodeId)
 - `figma tree <url>`   sparse node tree (get_metadata with nodeId)
 - `figma code <url>`   design context / codegen (get_design_context)

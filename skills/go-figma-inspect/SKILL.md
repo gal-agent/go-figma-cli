@@ -1,63 +1,68 @@
----
-name: go-figma-inspect
-description: Inspect Figma files via go-figma-cli: pages, node tree, variables, screenshots. Load when user mentions or agent finds task highly matches check go-figma-cli node, design tokens, go-figma-cli 截图, 看下设计稿, 变量查询.
----
+# go-figma-inspect
 
-# Figma inspection (go-figma-cli)
+Inspect Figma design files via `go-figma-cli` (PAT-based REST API).
 
-Answer questions about a Figma design **without generating code**: structure,
-tokens, visual reference. Syntax lives in `go-figma-cli --help` (every command has
-examples); this skill is about choosing the right probe and not wasting
-quota.
+## Auto-install
 
-## CLI prerequisite
+```bash
+# Check if CLI exists
+go-figma-cli version 2>/dev/null || {
+  # macOS/Linux: download from GitHub releases
+  # Windows: scoop install or download exe
+  # Ask user to run: /sudo go install github.com/gal-agent/go-figma-cli/cmd/go-figma-cli@latest
+}
+```
 
-Before using this skill, ensure `go-figma-cli` is available on `PATH`. If missing,
-download the matching asset from the latest release:
-`https://github.com/gal-agent/go-figma-cli/releases/latest`.
+If `go-figma-cli` is not on PATH, ask the user to install it (requires /sudo
+for system PATH changes). Do NOT proceed with inspection until it works.
 
-| Platform | Release asset | Install as |
-|---|---|---|
-| Windows x64 | `go-figma-cli-windows-amd64.exe` | `%LOCALAPPDATA%\Programs\go-figma-cli\go-figma-cli.exe` |
-| Windows ARM64 | `go-figma-cli-windows-arm64.exe` | `%LOCALAPPDATA%\Programs\go-figma-cli\go-figma-cli.exe` |
-| Linux x64 | `go-figma-cli-linux-amd64` | `~/.local/bin/go-figma-cli` |
-| Linux ARM64 | `go-figma-cli-linux-arm64` | `~/.local/bin/go-figma-cli` |
-| macOS Intel | `go-figma-cli-darwin-amd64` | `~/.local/bin/go-figma-cli` |
-| macOS Apple Silicon | `go-figma-cli-darwin-arm64` | `~/.local/bin/go-figma-cli` |
+## PAT setup (first run or after 401/403)
 
-Rename it exactly as shown. On Linux/macOS run
-`chmod +x ~/.local/bin/go-figma-cli`; on every platform add the parent directory to
-`PATH` if needed. Prefer the release binary—Go is only needed to build from
-source. Verify it using `checksums.txt`, then run `go-figma-cli --help`.
+Run `go-figma-cli doctor`. If it fails:
 
+1. Tell the user: "Open https://www.figma.com/settings → Security →
+   Personal access tokens → Generate new token. Scope: **File content -
+   read-only**. Copy the token (starts with figd_)."
+2. Run: `go-figma-cli login --token figd_xxxxxxxx`
+3. Re-run: `go-figma-cli doctor` to confirm.
 
-## Intent -> command
+The token is stored at `<user config>/figma-cli/config.json` and reused
+automatically. Reconfigure only when expired/revoked.
 
-| Question | Command |
-|---|---|
-| What pages exist in this file? | `pages` |
-| How is this frame structured / where is X? | `tree` (ids from its output feed follow-ups) |
-| Which color / spacing / font does it use? | `vars` (token names + values) |
-| Show me what it looks like / visual reference | `shot` (writes a file, prints the path; view with image tools) |
+## Commands (token-efficient)
 
-`code` also exists but belongs to the `go-figma-tocode` workflow — for pure
-lookups, prefer `tree` + `vars` + `shot`: they are cheap and precise.
+```bash
+go-figma-cli pages <url|key>          # list pages (tiny output)
+go-figma-cli tree <url>               # node tree (XML, ~1-3KB)
+go-figma-cli code <url>               # design context (structured text)
+go-figma-cli vars <url>               # design tokens (local + published)
+go-figma-cli shot <url> -o file.png   # screenshot to file (no base64)
+go-figma-cli pipeline <url>           # tree→children→code+vars in one call
+go-figma-cli doctor                    # verify token + connection
+```
 
-## Caching discipline (this is where tokens are saved)
+URL: any Figma link with `?node-id=...` (right-click frame → Copy link to
+selection). Or `fileKey nodeId` as two args.
 
-- Reads are disk-cached (default TTL). Re-checking a node you already
-  looked at — even in a later session — is free. Exploit that.
-- `--fresh` re-fetches from Figma and spends quota. Use it only when the
-  user says the design changed, and only on the affected nodes.
-- If `doctor` fails mid-session, fix per its output (remediation is
-  printed; OAuth details in the go-figma-cli repo README).
+## Workflow
 
-## Reading the outputs
+1. `pages` or `tree` to locate frame IDs — never guess.
+2. `pipeline <frame-url>` for a full screen (one call, intermediates
+   off-screen). Use `--max N` to limit children.
+3. `code <node-url>` for a single node's detail.
+4. `vars <url>` to align design tokens with project tokens.
+5. `shot <url> -o ref.png` for visual reference.
 
-- `tree` prints a sparse node tree: ids, names, types, sizes. Use the ids
-  verbatim in follow-up commands (`12-34` == `12:34`; the Figma link
-  pasted as-is also works).
-- `vars` output is the token source of truth — prefer token names over
-  hardcoded values when reporting or writing code.
-- `shot` writes the image under the project (or `--image-dir`); reference
-  it by path in notes/comparisons, never inline base64.
+Results are disk-cached (`--ttl`, default 10min). Use `--fresh` only after
+the designer updates the file. `--no-cache` for one-shot reads.
+
+## Token efficiency
+
+- `pipeline` is the most efficient: one command does tree + per-child code
+  + vars, intermediates never hit stdout.
+- `pages`/`tree` outputs are compact XML (~1-3KB).
+- `code` output is structured text, not raw JSON — typically 2-10KB per
+  frame.
+- `shot` writes to file — only the path enters context, never base64.
+- Cache hits are free — exploit within and across sessions.
+- Avoid `--raw` unless debugging — it dumps full JSON.

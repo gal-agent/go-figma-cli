@@ -2,3 +2,4 @@ bin/
 *.test
 *.out
 session.json
+.config/

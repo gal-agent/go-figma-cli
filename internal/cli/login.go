@@ -1,158 +1,84 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
-	"net/http"
 	"os"
-	"time"
+	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/gal-agent/go-figma-cli/internal/auth"
 	"github.com/gal-agent/go-figma-cli/internal/cache"
-	"github.com/gal-agent/go-figma-cli/internal/mcp"
-	"github.com/gal-agent/go-figma-cli/internal/tools"
+	"github.com/gal-agent/go-figma-cli/internal/config"
 )
 
+const patHelp = `Create a personal access token:
+  1. Open https://www.figma.com/settings
+  2. Security -> Personal access tokens -> Generate new token
+  3. Scope: File content - read-only (enough for all read commands)
+  4. Copy the token (starts with "figd_"; shown only once)`
+
 func newLoginCmd(app *App) *cobra.Command {
-	var clientID, clientSecret string
+	var token string
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Authorize go-figma-cli with the remote Figma MCP server (one-time)",
-		Long: `Runs the OAuth2 PKCE loopback flow against the Figma MCP authorization
-server and caches the token.
+		Short: "Save a Figma personal access token (PAT) to the config file",
+		Long: `Saves a Figma personal access token for all later commands.
 
-Figma does not allow dynamic client registration (403), so you must pass a
-client id from an OAuth app registered in your Figma account
-(https://www.figma.com/developers/api - register redirect URI
-http://localhost:<port>/callback, or fixed http://localhost). The client id
-is remembered after the first login.`,
-		Example: `  go-figma-cli login --client-id <YOUR_CLIENT_ID>
-  go-figma-cli login`,
+` + patHelp + `
+
+The token is stored at ` + "`<user config>/figma-cli/config.json`" + ` (0600).
+$FIGMA_TOKEN overrides the config file when set.
+If commands ever return 401/403, the token was revoked or expired:
+generate a new one and run login again.`,
+		Example: `  go-figma-cli login --token figd_xxxxxxxx
+  go-figma-cli doctor`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
-			if app.desktop {
-				fmt.Fprintln(out, "desktop mode talks to the local Figma app (127.0.0.1:3845) and needs no login.\n"+
-					"Just open the Figma desktop app, switch to Dev Mode and enable the MCP server.")
-				return nil
+			if token == "" {
+				token = os.Getenv("FIGMA_TOKEN")
 			}
-			hc := &http.Client{Timeout: 60 * time.Second}
-			fmt.Fprintf(out, "discovering OAuth endpoints for %s ...\n", app.endpoint())
-			meta, err := auth.Discover(cmd.Context(), hc, app.endpoint())
-			if err != nil {
-				return fmt.Errorf("endpoint discovery failed: %w\n(if this persists, try --desktop mode)", err)
+			if token == "" {
+				return fmt.Errorf("pass the token with --token (or set FIGMA_TOKEN)\n\n%s", patHelp)
 			}
-			fmt.Fprintf(out, "authorization endpoint: %s\n", meta.AuthorizationEndpoint)
-
-			endpoint, regErr := auth.Register(cmd.Context(), hc, meta)
-			if regErr != nil {
-				if clientID == "" {
-					clientID = os.Getenv("FIGMA_CLIENT_ID")
-					if clientSecret == "" {
-						clientSecret = os.Getenv("FIGMA_CLIENT_SECRET")
-					}
-				}
-				if clientID == "" {
-					return fmt.Errorf(`Figma does not allow dynamic client registration (%v).
-Register an OAuth app in your Figma account (redirect URI http://localhost) and re-run:
-  go-figma-cli login --client-id <YOUR_CLIENT_ID> [--client-secret <SECRET>]
-or set FIGMA_CLIENT_ID / FIGMA_CLIENT_SECRET.`, regErr)
-				}
-				fmt.Fprintln(out, "dynamic registration unavailable; using provided client id")
-				endpoint = &auth.Endpoint{
-					AuthorizationURL: meta.AuthorizationEndpoint,
-					TokenURL:         meta.TokenEndpoint,
-					ClientID:         clientID,
-					ClientSecret:     clientSecret,
-				}
+			if !strings.HasPrefix(token, "figd_") {
+				fmt.Fprintln(cmd.ErrOrStderr(), "[warn] token does not start with figd_; continuing anyway")
 			}
-			fmt.Fprintln(out, "client ready; starting browser authorization (PKCE)...")
-
-			store := &auth.Store{Path: auth.DefaultStorePath()}
-			tok, err := auth.Login(cmd.Context(), hc, endpoint, store)
-			if err != nil {
-				return err
+			if err := config.Save(&config.Store{PAT: token}); err != nil {
+				return fmt.Errorf("save config: %w", err)
 			}
-			if err := store.SaveEndpoint(endpoint); err != nil {
-				return fmt.Errorf("saving endpoint: %w", err)
-			}
-			fmt.Fprintf(out, "authorized; token cached at %s (expires %s)\n",
-				store.Path, tok.ExpiresAt.Format("2006-01-02 15:04 MST"))
+			fmt.Fprintf(out, "token saved to %s\n", config.DefaultPath())
 			fmt.Fprintln(out, "verify with: go-figma-cli doctor")
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&clientID, "client-id", "", "OAuth client id of your registered Figma app (also FIGMA_CLIENT_ID)")
-	cmd.Flags().StringVar(&clientSecret, "client-secret", "", "OAuth client secret, if your app is confidential (also FIGMA_CLIENT_SECRET)")
+	cmd.Flags().StringVar(&token, "token", "", "Figma personal access token (figd_...)")
+	_ = token
 	return cmd
 }
 
-// newDoctorCmd performs a handshake and prints a health/drift report.
-func newDoctorCmd(app *App) *cobra.Command {
+func newLogoutCmd(app *App) *cobra.Command {
 	return &cobra.Command{
-		Use:   "doctor",
-		Short: "Check MCP connectivity, auth, tool inventory and alias drift",
-		Long: `Connects, handshakes, lists tools and verifies that the four core
-capabilities (metadata / design context / variables / screenshot) resolve
-through the alias layer. Run before first use and whenever calls start
-failing; the output names the remediation (login, desktop mode, renamed
-tools).`,
-		Example: `  go-figma-cli doctor
-  go-figma-cli doctor --desktop`,
+		Use:   "logout",
+		Short: "Remove the stored Figma token",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			out := cmd.OutOrStdout()
-			client, _, err := app.connect(cmd.Context())
-			if err != nil {
+			if err := config.Clear(); err != nil {
 				return err
 			}
-			init, err := client.Initialize(cmd.Context())
-			if err != nil {
-				if errors.Is(err, mcp.ErrUnauthorized) {
-					return errors.New("server rejected our credentials; run `go-figma-cli login` first")
-				}
-				return err
-			}
-			fmt.Fprintf(out, "server        : %s %s (protocol %s)\n",
-				init.ServerInfo.Name, init.ServerInfo.Version, init.ProtocolVersion)
-			fmt.Fprintf(out, "endpoint      : %s (mode=%s)\n", app.endpoint(), app.mode())
-
-			list, err := client.ListTools(cmd.Context())
-			if err != nil {
-				return fmt.Errorf("tools/list: %w", err)
-			}
-			res := tools.NewResolver(list)
-			fmt.Fprintf(out, "tools exposed : %d\n", len(list))
-			for _, name := range res.Names() {
-				fmt.Fprintf(out, "  - %s\n", name)
-			}
-
-			fmt.Fprintln(out, "core capabilities:")
-			for _, cap := range []string{tools.CapMetadata, tools.CapDesignCtx, tools.CapVariables, tools.CapScreenshot} {
-				status := "OK"
-				if !res.Has(cap) {
-					status = "MISSING (aliases exhausted - Figma likely renamed tools)"
-				}
-				fmt.Fprintf(out, "  %-20s %s\n", cap, status)
-			}
-
-			fmt.Fprintf(out, "cache         : %s\n", cache.DefaultDir())
-			fmt.Fprint(out, "auth          : ")
-			if app.desktop {
-				fmt.Fprintln(out, "not required (desktop mode)")
-			} else {
-				store := &auth.Store{Path: auth.DefaultStorePath()}
-				tok, err := store.Load()
-				switch {
-				case err != nil || tok == nil:
-					fmt.Fprintln(out, "no token - run `go-figma-cli login`")
-				case !tok.Valid():
-					fmt.Fprintln(out, "token expired - refresh is attempted automatically; else run `go-figma-cli login`")
-				default:
-					fmt.Fprintf(out, "valid until %s\n", tok.ExpiresAt.Format("2006-01-02 15:04"))
-				}
-			}
+			fmt.Fprintln(cmd.OutOrStdout(), "token removed")
 			return nil
 		},
 	}
 }
+
+func newDoctorCmd(app *App) *cobra.Command {
+	return &cobra.Command{
+		Use:     "doctor",
+		Short:   "Verify the REST API connection and token",
+		Example: `  go-figma-cli doctor`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return app.restDoctor(cmd.Context(), cmd.OutOrStdout())
+		},
+	}
+}
+
+var _ = cache.DefaultDir
