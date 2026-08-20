@@ -12,6 +12,29 @@ context, disk cache, image payloads written to files.
 or download a prebuilt binary from
 [Releases](https://github.com/gal-agent/go-figma-cli/releases/latest).
 
+## AI agent setup (copy-paste)
+
+Paste the one-liner for your platform into your AI agent (GAL, Claude Code,
+etc.) to install the CLI + skills:
+
+**macOS / Linux:**
+
+```
+Run: curl -sL https://github.com/gal-agent/go-figma-cli/releases/latest/download/go-figma-cli-$(uname -s | tr A-Z a-z)-amd64 -o /usr/local/bin/go-figma-cli && chmod +x /usr/local/bin/go-figma-cli && curl -sL https://github.com/gal-agent/go-figma-cli/archive/refs/heads/main.tar.gz | tar xz && cp -r go-figma-cli-main/skills/* ~/.gal/skills/
+```
+
+**Windows (PowerShell):**
+
+```
+Run: $r="https://github.com/gal-agent/go-figma-cli/releases/latest/download"; $d="$env:LOCALAPPDATA\Programs\go-figma-cli"; New-Item -ItemType Directory -Force $d | Out-Null; Invoke-WebRequest "$r/go-figma-cli-windows-amd64.exe" -OutFile "$d\go-figma-cli.exe"; $p=[Environment]::GetEnvironmentVariable("PATH","User"); if($p -notlike "*$d*"){[Environment]::SetEnvironmentVariable("PATH","$p;$d","User")}; git clone --depth 1 https://github.com/gal-agent/go-figma-cli.git "$env:TEMP\go-figma-cli"; Copy-Item -Recurse -Force "$env:TEMP\go-figma-cli\skills\*" "$env:USERPROFILE\.gal\skills\"
+```
+
+Then set up the PAT:
+
+```
+Run: go-figma-cli login --token figd_xxxxxxxx && go-figma-cli doctor
+```
+
 ## Setup (once)
 
 1. Create a PAT at <https://www.figma.com/settings>
