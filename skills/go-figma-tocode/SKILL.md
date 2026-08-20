@@ -2,12 +2,6 @@
 
 Implement Figma designs as UI code via `go-figma-cli` (PAT-based REST API).
 
-## Auto-install
-
-If `go-figma-cli` is not on PATH, ask the user to install it
-(`/sudo go install github.com/gal-agent/go-figma-cli/cmd/go-figma-cli@latest`).
-Verify with `go-figma-cli doctor`. Do NOT proceed until it works.
-
 ## PAT setup
 
 Run `go-figma-cli doctor`. If it fails (401/403 or missing token):

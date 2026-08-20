@@ -22,7 +22,7 @@ import (
 )
 
 // version is set at build time via -ldflags.
-var version = "0.2.0"
+var version = "0.3.0"
 
 // verbose mirrors the global -v flag (progress goes to stderr).
 var verbose bool

@@ -1,5 +1,7 @@
-bin/
+﻿bin/
 *.test
 *.out
 session.json
 .config/
+go-figma-cli.exe
+dist/

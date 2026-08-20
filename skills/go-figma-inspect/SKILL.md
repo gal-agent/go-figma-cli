@@ -2,20 +2,6 @@
 
 Inspect Figma design files via `go-figma-cli` (PAT-based REST API).
 
-## Auto-install
-
-```bash
-# Check if CLI exists
-go-figma-cli version 2>/dev/null || {
-  # macOS/Linux: download from GitHub releases
-  # Windows: scoop install or download exe
-  # Ask user to run: /sudo go install github.com/gal-agent/go-figma-cli/cmd/go-figma-cli@latest
-}
-```
-
-If `go-figma-cli` is not on PATH, ask the user to install it (requires /sudo
-for system PATH changes). Do NOT proceed with inspection until it works.
-
 ## PAT setup (first run or after 401/403)
 
 Run `go-figma-cli doctor`. If it fails:
