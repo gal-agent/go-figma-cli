@@ -12,27 +12,32 @@ context, disk cache, image payloads written to files.
 or download a prebuilt binary from
 [Releases](https://github.com/gal-agent/go-figma-cli/releases/latest).
 
-## AI agent setup (copy-paste)
+## AI agent setup
 
-Paste the one-liner for your platform into your AI agent (GAL, Claude Code,
-etc.) to install the CLI + skills:
-
-**macOS / Linux:**
+Copy the text below and paste it to your AI agent:
 
 ```
-Run: curl -sL https://github.com/gal-agent/go-figma-cli/releases/latest/download/go-figma-cli-$(uname -s | tr A-Z a-z)-amd64 -o /usr/local/bin/go-figma-cli && chmod +x /usr/local/bin/go-figma-cli && curl -sL https://github.com/gal-agent/go-figma-cli/archive/refs/heads/main.tar.gz | tar xz && cp -r go-figma-cli-main/skills/* ~/.gal/skills/
-```
+Install go-figma-cli and its skills:
 
-**Windows (PowerShell):**
+Step 1 - Install the CLI binary:
+- Go to https://github.com/gal-agent/go-figma-cli/releases/latest
+- Download the file matching your OS and arch:
+  - Linux:   go-figma-cli-linux-amd64   -> install to /usr/local/bin/go-figma-cli, run chmod +x on it
+  - macOS:   go-figma-cli-darwin-arm64  (Apple Silicon) or go-figma-cli-darwin-amd64 (Intel) -> install to /usr/local/bin/go-figma-cli, run chmod +x on it
+  - Windows: go-figma-cli-windows-amd64.exe -> install to a directory on your PATH (e.g. %LOCALAPPDATA%\Programs\go-figma-cli\go-figma-cli.exe, then add that directory to your User PATH if not already present)
+- Verify: run `go-figma-cli --help` and confirm output is shown
 
-```
-Run: $r="https://github.com/gal-agent/go-figma-cli/releases/latest/download"; $d="$env:LOCALAPPDATA\Programs\go-figma-cli"; New-Item -ItemType Directory -Force $d | Out-Null; Invoke-WebRequest "$r/go-figma-cli-windows-amd64.exe" -OutFile "$d\go-figma-cli.exe"; $p=[Environment]::GetEnvironmentVariable("PATH","User"); if($p -notlike "*$d*"){[Environment]::SetEnvironmentVariable("PATH","$p;$d","User")}; git clone --depth 1 https://github.com/gal-agent/go-figma-cli.git "$env:TEMP\go-figma-cli"; Copy-Item -Recurse -Force "$env:TEMP\go-figma-cli\skills\*" "$env:USERPROFILE\.gal\skills\"
-```
+Step 2 - Install the skills:
+- The two skills live at https://github.com/gal-agent/go-figma-cli/tree/main/skills
+  - go-figma-inspect/SKILL.md
+  - go-figma-tocode/SKILL.md
+- Download both directories and place them under your agent's skills directory so the agent can discover them at runtime
 
-Then set up the PAT:
-
-```
-Run: go-figma-cli login --token figd_xxxxxxxx && go-figma-cli doctor
+Step 3 - Configure the Figma PAT:
+- Go to https://www.figma.com/settings -> Security -> Personal access tokens
+- Create a token with "File content - read-only" scope
+- Run: go-figma-cli login --token figd_xxxxxxxx
+- Run: go-figma-cli doctor to verify
 ```
 
 ## Setup (once)
