@@ -1,3 +1,8 @@
+---
+name: go-figma-tocode
+description: Convert Figma designs to UI code. Load when user mentions or agent finds task highly matches Figma to code, implement Figma design, convert design to component, figma-to-react, figma-to-vue, design to HTML, or build UI from Figma.
+---
+
 # go-figma-tocode
 
 Implement Figma designs as UI code via `go-figma-cli` (PAT-based REST API).
