@@ -11,10 +11,13 @@ import (
 
 // Node is one element of the sparse tree.
 type Node struct {
-	ID       string
-	Name     string
-	Type     string
-	Children []*Node
+	ID          string
+	Name        string
+	Type        string
+	ComponentID string
+	LayoutMode  string
+	Visible     *bool
+	Children    []*Node
 }
 
 // DirectChildren returns the root's immediate children.
@@ -104,6 +107,15 @@ func Parse(text string) (*Node, error) {
 					if a.Value != "" {
 						n.Type = a.Value
 					}
+				case "componentid":
+					n.ComponentID = a.Value
+				case "layoutmode":
+					n.LayoutMode = a.Value
+				case "visible":
+					if a.Value == "false" {
+						f := false
+						n.Visible = &f
+					}
 				}
 			}
 			parent := stack[len(stack)-1]
@@ -128,4 +140,58 @@ func Root(t *Node) *Node {
 		return t.Children[0]
 	}
 	return t
+}
+
+// Grep filters the tree to nodes whose Name or Type contains pattern
+// (case-insensitive). Each match includes its full ancestor path so
+// the caller knows where it lives in the tree. Returns nil if no match.
+func (t *Node) Grep(pattern string) []*Node {
+	if t == nil || pattern == "" {
+		return nil
+	}
+	lc := strings.ToLower(pattern)
+	var out []*Node
+	var walk func(n *Node)
+	walk = func(n *Node) {
+		if n == nil {
+			return
+		}
+		if strings.Contains(strings.ToLower(n.Name), lc) ||
+			strings.Contains(strings.ToLower(n.Type), lc) {
+			out = append(out, n)
+		}
+		for _, c := range n.Children {
+			walk(c)
+		}
+	}
+	walk(t)
+	return out
+}
+
+// Path returns the ancestor chain from root to this node (inclusive),
+// useful for displaying where a grep hit lives in the tree.
+func (t *Node) Path(target *Node) []*Node {
+	if t == nil || target == nil {
+		return nil
+	}
+	var path []*Node
+	var search func(n *Node) bool
+	search = func(n *Node) bool {
+		if n == nil {
+			return false
+		}
+		path = append(path, n)
+		if n == target {
+			return true
+		}
+		for _, c := range n.Children {
+			if search(c) {
+				return true
+			}
+		}
+		path = path[:len(path)-1]
+		return false
+	}
+	search(t)
+	return path
 }

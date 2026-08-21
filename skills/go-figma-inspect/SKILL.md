@@ -25,6 +25,7 @@ Token stored at `<user config>/figma-cli/config.json`, reused automatically.
 ```bash
 go-figma-cli pages <url|key>          # list pages (tiny output)
 go-figma-cli tree <url>               # node tree (XML, ~1-3KB)
+go-figma-cli tree <url> --grep icon   # filter tree to matching nodes
 go-figma-cli code <url>               # design context (structured text)
 go-figma-cli vars <url>               # design tokens (local + published)
 go-figma-cli shot <url> -o file.png   # screenshot to file (no base64)
@@ -56,17 +57,24 @@ the designer updates the file. `--no-cache` for one-shot reads.
   frame.
 - `shot` writes to file - only the path enters context, never base64.
 - Cache hits are free - exploit within and across sessions.
-- Avoid `--raw` unless debugging - it dumps full JSON.
+- Use `tree --grep <pattern>` instead of `tree --raw | grep` to find
+  specific nodes without loading full JSON into context.
 
-## Parallel calls
+## Parallel calls (MANDATORY)
 
-Independent commands have no data dependency and can be issued in the same
-round to reduce round-trips (each saved round avoids re-processing the full
-conversation history):
+**You MUST issue independent commands in the same round whenever possible.**
+Each round re-processes the full conversation history, so serializing
+independent calls wastes tokens proportional to context size.
 
-- `tree` + `vars` - no dependency, run both at once.
+**Always parallelize these (zero data dependency):**
+- `doctor` + `tree <url>` - run both at once.
+- `tree <url>` + `vars <url>` - no dependency between them.
 - Multiple `code <nodeA>` / `code <nodeB>` on sibling nodes - independent.
 - Multiple `pipeline` on different top-level frames - independent.
 
-Do NOT parallelize calls with dependencies (`pages` -> `tree` -> `code`
-each needs the prior output's node IDs).
+**Never parallelize these (data dependency - prior output needed):**
+- `pages` -> `tree` - tree needs page's node ID.
+- `tree` -> `code <specific-child>` - code needs node ID from tree output.
+
+**When in doubt:** if call B needs any value from call A's stdout, they
+are dependent - serialize. Otherwise, parallelize.

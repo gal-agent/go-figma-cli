@@ -27,6 +27,15 @@ func writeNodeXML(b *strings.Builder, n *Node) {
 	xmlAttr(b, "id", n.ID)
 	xmlAttr(b, "name", n.Name)
 	xmlAttr(b, "type", n.Type)
+	if n.ComponentID != "" {
+		xmlAttr(b, "componentId", n.ComponentID)
+	}
+	if n.LayoutMode != "" && n.LayoutMode != "NONE" {
+		xmlAttr(b, "layoutMode", n.LayoutMode)
+	}
+	if n.Visible != nil && !*n.Visible {
+		xmlAttr(b, "visible", "false")
+	}
 	if bb := n.AbsoluteBoundingBox; bb != nil {
 		xmlAttr(b, "x", ftoa(bb.X))
 		xmlAttr(b, "y", ftoa(bb.Y))

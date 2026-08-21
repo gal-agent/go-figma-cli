@@ -9,8 +9,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/gal-agent/go-figma-cli/internal/figmaurl"
+	"github.com/gal-agent/go-figma-cli/internal/mcp"
 	"github.com/gal-agent/go-figma-cli/internal/output"
 	"github.com/gal-agent/go-figma-cli/internal/tools"
+	"github.com/gal-agent/go-figma-cli/internal/xmlscan"
 )
 
 // refFromArgs accepts "<url>" or "<fileKey> <nodeId>" (2 positional args).
@@ -64,12 +66,16 @@ func newPagesCmd(app *App) *cobra.Command {
 }
 
 func newTreeCmd(app *App) *cobra.Command {
-	var sets []string
+	var (
+		sets    []string
+		grep    string
+	)
 	cmd := &cobra.Command{
 		Use:   "tree <url-or-(fileKey nodeId)>",
 		Short: "Sparse node tree for a node (get_metadata with nodeId)",
 		Example: `  go-figma-cli tree "https://www.figma.com/design/ABC123/My-App?node-id=12-34"
-  go-figma-cli tree ABC123 12:34`,
+  go-figma-cli tree ABC123 12:34
+  go-figma-cli tree ABC123 12:34 --grep icon`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := refFromArgs(args, true)
@@ -85,10 +91,14 @@ func newTreeCmd(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if grep != "" {
+				return printGrep(cmd, res, grep)
+			}
 			return app.printResult(cmd, res)
 		},
 	}
 	cmd.Flags().StringArrayVar(&sets, "set", nil, "extra tool args k=v")
+	cmd.Flags().StringVar(&grep, "grep", "", "filter tree to nodes whose name or type matches (case-insensitive)")
 	return cmd
 }
 
@@ -229,4 +239,46 @@ func moveFile(src, dst string) error {
 		return err
 	}
 	return os.Remove(src)
+}
+
+// printGrep filters tree XML output to nodes matching pattern (case-
+// insensitive match on name or type). Each hit prints its ancestor path
+// so the caller knows where it lives in the tree.
+func printGrep(cmd *cobra.Command, res *mcp.CallToolResult, pattern string) error {
+	if res == nil || len(res.Content) == 0 {
+		return fmt.Errorf("no tree data to grep")
+	}
+	text := res.TextParts()
+	if text == "" {
+		return fmt.Errorf("tree result has no text content")
+	}
+	tree, err := xmlscan.Parse(text)
+	if err != nil {
+		return fmt.Errorf("parse tree XML: %w", err)
+	}
+	root := xmlscan.Root(tree)
+	matches := root.Grep(pattern)
+	if len(matches) == 0 {
+		fmt.Fprintf(cmd.OutOrStdout(), "(no nodes matching %q)\n", pattern)
+		return nil
+	}
+	out := cmd.OutOrStdout()
+	for _, m := range matches {
+		path := root.Path(m)
+		ids := make([]string, 0, len(path))
+		names := make([]string, 0, len(path))
+		for _, p := range path {
+			ids = append(ids, p.ID)
+			names = append(names, p.Name)
+		}
+		depth := len(path) - 1
+		indent := strings.Repeat("  ", depth)
+		fmt.Fprintf(out, "%s- [%s] %q %s\n", indent, m.ID, m.Name, m.Type)
+		if m.ComponentID != "" {
+			fmt.Fprintf(out, "%s  instance-of=%s\n", indent, m.ComponentID)
+		}
+		// Print the ancestor breadcrumb for context.
+		fmt.Fprintf(out, "%s  path: %s\n", indent, strings.Join(names, " > "))
+	}
+	return nil
 }

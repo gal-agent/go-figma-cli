@@ -25,6 +25,7 @@ Token stored at `<user config>/figma-cli/config.json`, reused automatically.
 go-figma-cli pipeline <url>           # tree->children->code+vars (best for handoff)
 go-figma-cli code <url>                # single node design context
 go-figma-cli tree <url>                # node structure
+go-figma-cli tree <url> --grep icon    # filter tree to matching nodes
 go-figma-cli vars <url>                # design tokens (local + published)
 go-figma-cli shot <url> -o ref.png     # screenshot to file
 go-figma-cli pages <url|key>           # page list
@@ -72,13 +73,20 @@ JSON, not runnable code). Translate it to the project stack:
 - `shot` writes to file - only the path enters context.
 - Avoid `--raw` unless debugging.
 
-## Parallel calls
+## Parallel calls (MANDATORY)
 
-Independent commands can be issued in the same round to reduce round-trips:
+**You MUST issue independent commands in the same round whenever possible.**
+Each round re-processes the full conversation history, so serializing
+independent calls wastes tokens proportional to context size.
 
-- `tree` + `vars` - no dependency, run both at once.
+**Always parallelize these (zero data dependency):**
+- `tree <url>` + `vars <url>` - no dependency between them.
 - Multiple `code <nodeA>` / `code <nodeB>` on sibling nodes - independent.
 - Multiple `pipeline` on different top-level frames - independent.
 
-Do NOT parallelize calls with dependencies (`pages` -> `tree` -> `code`
-each needs the prior output's node IDs).
+**Never parallelize these (data dependency - prior output needed):**
+- `pages` -> `tree` - tree needs page's node ID.
+- `tree` -> `code <specific-child>` - code needs node ID from tree output.
+
+**When in doubt:** if call B needs any value from call A's stdout, they
+are dependent - serialize. Otherwise, parallelize.
