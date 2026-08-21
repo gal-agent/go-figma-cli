@@ -12,8 +12,8 @@ Implement Figma designs as UI code via `go-figma-cli` (PAT-based REST API).
 Run `go-figma-cli doctor`. If it fails (401/403 or missing token):
 
 1. Tell the user: "Open https://www.figma.com/settings -> Security ->
-   Personal access tokens -> Generate new token. Scope: **File content -
-   read-only**."
+   Personal access tokens -> Generate new token. Check BOTH:
+   **File content - read-only** AND **Variables - read-only**."
 2. Run: `go-figma-cli login --token figd_xxxxxxxx`
 3. Verify: `go-figma-cli doctor`
 
@@ -71,3 +71,14 @@ JSON, not runnable code). Translate it to the project stack:
 - `--fresh` only after designer updates the file.
 - `shot` writes to file - only the path enters context.
 - Avoid `--raw` unless debugging.
+
+## Parallel calls
+
+Independent commands can be issued in the same round to reduce round-trips:
+
+- `tree` + `vars` - no dependency, run both at once.
+- Multiple `code <nodeA>` / `code <nodeB>` on sibling nodes - independent.
+- Multiple `pipeline` on different top-level frames - independent.
+
+Do NOT parallelize calls with dependencies (`pages` -> `tree` -> `code`
+each needs the prior output's node IDs).

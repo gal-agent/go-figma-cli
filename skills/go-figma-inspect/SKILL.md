@@ -12,8 +12,9 @@ Inspect Figma design files via `go-figma-cli` (PAT-based REST API).
 Run `go-figma-cli doctor`. If it fails:
 
 1. Tell the user: "Open https://www.figma.com/settings -> Security ->
-   Personal access tokens -> Generate new token. Scope: **File content -
-   read-only**. Copy the token (starts with figd_)."
+   Personal access tokens -> Generate new token. Check BOTH:
+   **File content - read-only** AND **Variables - read-only**.
+   Copy the token (starts with figd_)."
 2. Run: `go-figma-cli login --token figd_xxxxxxxx`
 3. Re-run: `go-figma-cli doctor` to confirm.
 
@@ -56,3 +57,16 @@ the designer updates the file. `--no-cache` for one-shot reads.
 - `shot` writes to file - only the path enters context, never base64.
 - Cache hits are free - exploit within and across sessions.
 - Avoid `--raw` unless debugging - it dumps full JSON.
+
+## Parallel calls
+
+Independent commands have no data dependency and can be issued in the same
+round to reduce round-trips (each saved round avoids re-processing the full
+conversation history):
+
+- `tree` + `vars` - no dependency, run both at once.
+- Multiple `code <nodeA>` / `code <nodeB>` on sibling nodes - independent.
+- Multiple `pipeline` on different top-level frames - independent.
+
+Do NOT parallelize calls with dependencies (`pages` -> `tree` -> `code`
+each needs the prior output's node IDs).

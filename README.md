@@ -35,7 +35,7 @@ Step 2 - Install the skills:
 
 Step 3 - Configure the Figma PAT:
 - Go to https://www.figma.com/settings -> Security -> Personal access tokens
-- Create a token with "File content - read-only" scope
+- Create a token with "File content - read-only" AND "Variables - read-only" scopes
 - Run: go-figma-cli login --token figd_xxxxxxxx
 - Run: go-figma-cli doctor to verify
 ```
@@ -43,7 +43,8 @@ Step 3 - Configure the Figma PAT:
 ## Setup (once)
 
 1. Create a PAT at <https://www.figma.com/settings>
-   (**Security -> Personal access tokens**, scope: **File content - read-only**).
+   (**Security -> Personal access tokens**, check both scopes:
+   **File content - read-only** AND **Variables - read-only**).
 2. Save it:
 
        go-figma-cli login --token figd_xxxxxxxx
